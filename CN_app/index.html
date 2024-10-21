@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CN App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #messageArea {
+            height: 550px;
+            overflow-y: auto;
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <h1 class="font-bold text-blue-600 text-4xl text-center mt-10">CN Chat App</h1>
+    <div>
+        <h2 class="font-semibold text-xl text-center mt-3 text-gray-700" id="logo">Chat App using Socket.io</h2>
+    </div>
+
+    <div class="flex flex-col items-center mt-5">
+        <form class="w-full max-w-lg" id="form" autocomplete="off">
+            <div class="flex space-x-2">
+                <input class="border border-gray-300 rounded-md p-2 focus:outline-none" type="text" placeholder="Name" id="myname">
+            </div>
+
+            <div class="w-full max-w-lg my-5 bg-white shadow-lg rounded-lg overflow-hidden relative">
+                <div class="absolute top-0 left-0 w-full bg-blue-100 z-10 p-1 px-3 font-semibold shadow-xl text-blue-600">Chats</div>
+                <div class="w-full max-w-lg mt-9 pl-4 mt-4" id="messageArea">
+                    <!-- Messages will be dynamically added here -->
+                </div>
+            </div>
+            <div class="flex space-x-2 w-full max-w-lg">
+                <input class="border border-gray-300 rounded-md p-2 flex-grow transition-all ease-in-out focus:outline-none focus:ring focus:ring-blue-200" type="text" placeholder="Message" id="message">
+                <button class="bg-blue-600 rounded-md p-2 text-white flex items-center transition-all ease-in-out duration-300 hover:bg-blue-700 hover:rounded-xl hover:-translate-y-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 1792 1792">
+                        <path fill="white" d="M1764 11q33 24 27 64l-256 1536q-5 29-32 45q-14 8-31 8q-11 0-24-5l-453-185l-242 295q-18 23-49 23q-13 0-22-4q-19-7-30.5-23.5T640 1728v-349l864-1059l-1069 925l-395-162q-37-14-40-55q-2-40 32-59L1696 9q15-9 32-9q20 0 36 11" />
+                    </svg>
+                    <div class="mx-1">Send</div>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+    let socket = io();
+
+    let form = document.getElementById('form');
+    let myname = document.getElementById('myname');
+    let message = document.getElementById('message');
+    let messageArea = document.getElementById("messageArea");
+    let myId = ''; // This will hold the user's socket ID
+
+    // Function to render the chat message bubble
+    function chatGrid(name, msg, isSent) {
+        let time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let bubbleClass = isSent ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900';
+        let alignmentClass = isSent ? 'ml-auto' : 'mr-auto';
+        let dropClass = isSent ? 'rounded-tr-none' : 'rounded-tl-none';
+
+        return `
+            <div class="grid pr-4 w-full">
+                <div class="${alignmentClass} w-fit">
+                    <h5 class="text-sm font-semibold leading-snug pb-1">${name}</h5>
+                    <div class="w-max grid">
+                        <div class="px-3.5 py-2 rounded-3xl ${bubbleClass} ${dropClass} justify-start items-center gap-3 inline-flex">
+                            <h5 class="text-sm font-normal leading-snug" style="max-width: 350px;">${msg}</h5>
+                        </div>
+                        <div class="justify-end items-center inline-flex mb-2.5">
+                            <h6 class="text-gray-500 text-xs font-normal leading-4 py-1">${time}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // Add event listener for form submission to send messages
+    form.addEventListener("submit", (e) => {
+        e.preventDefault(); // Prevent default form submission behavior
+
+        // Check if the name input is empty
+        if (!myname.value) {
+            myname.style.outlineColor = 'red';
+            myname.focus();
+            return;
+        }
+
+        // Check if the message input has a value
+        if (message.value) {
+            const currMsg = { name: myname.value, msg: message.value };
+
+            // Emit the message to the server only once
+            socket.emit('send message', currMsg);
+
+            // Add the sent message to the chat area (locally for the sender)
+            const sentBubble = chatGrid(myname.value, currMsg.msg, true);
+            messageArea.innerHTML += sentBubble;
+            messageArea.scrollTop = messageArea.scrollHeight;
+
+            // Clear the input after sending
+            message.value = "";
+        }
+    });
+
+    // Retrieve the socket ID of the client
+    socket.on("connect", () => {
+        myId = socket.id; // Save the client's socket ID
+    });
+
+    // Listen for incoming messages from the server
+    socket.on("rec message", (chat) => {
+        const isSent = chat.id === myId; // Check if the message is from the current user
+        const chatBubble = chatGrid(chat.name, chat.msg, isSent);
+        messageArea.innerHTML += chatBubble; // Add the message to the chat area
+        messageArea.scrollTop = messageArea.scrollHeight; // Scroll to the bottom
+    });
+</script>
+
+
+</body>
+</html>
